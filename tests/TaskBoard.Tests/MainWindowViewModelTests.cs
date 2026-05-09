@@ -1,3 +1,4 @@
+using TaskBoard.Client.Models;
 using TaskBoard.Client.Services;
 using TaskBoard.Client.ViewModels;
 using TaskBoard.Shared;
@@ -11,7 +12,7 @@ public sealed class MainWindowViewModelTests
     {
         var state = BoardState.CreateDefault();
         state.Columns.Add(new BoardColumn { Title = "Acceptance", SortOrder = 10 });
-        var viewModel = new MainWindowViewModel(new FakeBoardClient(), new FakeCache(state), new LocalizationService());
+        var viewModel = CreateViewModel(new FakeBoardClient(), new FakeCache(state), new LocalizationService());
 
         await viewModel.InitializeFromCacheAsync();
 
@@ -22,7 +23,7 @@ public sealed class MainWindowViewModelTests
     public void SwitchLanguage_ChangesVisibleLabels()
     {
         var localization = new LocalizationService();
-        var viewModel = new MainWindowViewModel(new FakeBoardClient(), new FakeCache(null), localization);
+        var viewModel = CreateViewModel(new FakeBoardClient(), new FakeCache(null), localization);
 
         viewModel.SwitchLanguageCommand.Execute("en");
 
@@ -33,7 +34,7 @@ public sealed class MainWindowViewModelTests
     public async Task AddColumnCommand_WorksWithoutServerConnection()
     {
         var cache = new FakeCache(BoardState.CreateDefault());
-        var viewModel = new MainWindowViewModel(new FakeBoardClient(), cache, new LocalizationService());
+        var viewModel = CreateViewModel(new FakeBoardClient(), cache, new LocalizationService());
         await viewModel.InitializeFromCacheAsync();
 
         viewModel.NewColumnTitle = "Проверка";
@@ -46,7 +47,7 @@ public sealed class MainWindowViewModelTests
     [Fact]
     public async Task AddAndDeleteCardCommands_WorkWithoutServerConnection()
     {
-        var viewModel = new MainWindowViewModel(new FakeBoardClient(), new FakeCache(BoardState.CreateDefault()), new LocalizationService());
+        var viewModel = CreateViewModel(new FakeBoardClient(), new FakeCache(BoardState.CreateDefault()), new LocalizationService());
         await viewModel.InitializeFromCacheAsync();
         var column = viewModel.Columns[0];
 
@@ -57,6 +58,35 @@ public sealed class MainWindowViewModelTests
         await viewModel.DeleteCardCommand.ExecuteAsync(null);
 
         Assert.DoesNotContain(viewModel.Columns.SelectMany(item => item.Cards), item => item.Id == card.Id);
+    }
+
+    [Fact]
+    public void SelectedDiscoveredHost_UpdatesServerUrl()
+    {
+        var viewModel = CreateViewModel(new FakeBoardClient(), new FakeCache(null), new LocalizationService());
+        var host = new DiscoveredBoardHost
+        {
+            Name = "Office PC",
+            Url = "http://192.168.1.10:5000"
+        };
+
+        viewModel.SelectedHost = host;
+
+        Assert.Equal("http://192.168.1.10:5000", viewModel.ServerUrl);
+    }
+
+    private static MainWindowViewModel CreateViewModel(
+        IBoardRealtimeClient client,
+        ILocalBoardCache cache,
+        LocalizationService localization)
+    {
+        return new MainWindowViewModel(
+            client,
+            cache,
+            localization,
+            new EmbeddedBoardServer(),
+            new LanDiscoveryService(),
+            startDiscovery: false);
     }
 
     private sealed class FakeCache(BoardState? state) : ILocalBoardCache

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using TaskBoard.Client.Models;
 using TaskBoard.Client.Services;
 using TaskBoard.Shared;
 
@@ -12,12 +13,16 @@ public sealed class MainWindowViewModel : ObservableObject
     private readonly IBoardRealtimeClient client;
     private readonly ILocalBoardCache cache;
     private readonly LocalizationService localization;
+    private readonly EmbeddedBoardServer embeddedServer;
+    private readonly LanDiscoveryService discovery;
     private CardViewModel? selectedCard;
+    private DiscoveredBoardHost? selectedHost;
     private string serverUrl = "http://localhost:5000";
     private string userName = Environment.UserName;
     private string newColumnTitle = string.Empty;
     private string status;
     private bool isConnected;
+    private bool isServerRunning;
     private BoardState currentState = BoardState.CreateDefault();
 
     public MainWindowViewModel()
@@ -29,13 +34,27 @@ public sealed class MainWindowViewModel : ObservableObject
         IBoardRealtimeClient client,
         ILocalBoardCache cache,
         LocalizationService localization)
+        : this(client, cache, localization, new EmbeddedBoardServer(), new LanDiscoveryService())
+    {
+    }
+
+    public MainWindowViewModel(
+        IBoardRealtimeClient client,
+        ILocalBoardCache cache,
+        LocalizationService localization,
+        EmbeddedBoardServer embeddedServer,
+        LanDiscoveryService discovery,
+        bool startDiscovery = true)
     {
         this.client = client;
         this.cache = cache;
         this.localization = localization;
+        this.embeddedServer = embeddedServer;
+        this.discovery = discovery;
         status = localization["Ready"];
 
         ConnectCommand = new AsyncRelayCommand(ConnectOrDisconnectAsync);
+        ToggleServerCommand = new AsyncRelayCommand(ToggleServerAsync);
         AddColumnCommand = new AsyncRelayCommand(AddColumnAsync);
         DeleteColumnCommand = new AsyncRelayCommand<ColumnViewModel>(DeleteColumnAsync);
         AddCardCommand = new AsyncRelayCommand<ColumnViewModel>(AddCardAsync);
@@ -50,12 +69,19 @@ public sealed class MainWindowViewModel : ObservableObject
         client.BoardUpdated += OnBoardUpdated;
         client.UsersUpdated += OnUsersUpdated;
         client.ConnectionChanged += connected => RunOnUiThread(() => IsConnected = connected);
+        discovery.HostDiscovered += OnHostDiscovered;
+        if (startDiscovery)
+        {
+            discovery.StartListening();
+        }
     }
 
     public ObservableCollection<ColumnViewModel> Columns { get; } = [];
     public ObservableCollection<string> OnlineUsers { get; } = [];
+    public ObservableCollection<DiscoveredBoardHost> DiscoveredHosts { get; } = [];
 
     public IAsyncRelayCommand ConnectCommand { get; }
+    public IAsyncRelayCommand ToggleServerCommand { get; }
     public IAsyncRelayCommand AddColumnCommand { get; }
     public IAsyncRelayCommand<ColumnViewModel> DeleteColumnCommand { get; }
     public IAsyncRelayCommand<ColumnViewModel> AddCardCommand { get; }
@@ -70,6 +96,18 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         get => serverUrl;
         set => SetProperty(ref serverUrl, value);
+    }
+
+    public DiscoveredBoardHost? SelectedHost
+    {
+        get => selectedHost;
+        set
+        {
+            if (SetProperty(ref selectedHost, value) && value is not null)
+            {
+                ServerUrl = value.Url;
+            }
+        }
     }
 
     public string UserName
@@ -121,6 +159,8 @@ public sealed class MainWindowViewModel : ObservableObject
     public string ServerLabel => localization["Server"];
     public string UserLabel => localization["User"];
     public string ConnectButtonLabel => IsConnected ? localization["Disconnect"] : localization["Connect"];
+    public string ServerModeButtonLabel => IsServerRunning ? localization["StopServer"] : localization["StartServer"];
+    public string DiscoveredHostsLabel => localization["DiscoveredHosts"];
     public string ColumnPlaceholder => localization["ColumnPlaceholder"];
     public string AddColumnLabel => localization["AddColumn"];
     public string OnlineLabel => localization["Online"];
@@ -164,6 +204,44 @@ public sealed class MainWindowViewModel : ObservableObject
         catch (Exception ex)
         {
             IsConnected = false;
+            Status = ex.Message;
+        }
+    }
+
+    private async Task ToggleServerAsync()
+    {
+        try
+        {
+            if (IsServerRunning)
+            {
+                discovery.StopAnnouncing();
+                await embeddedServer.StopAsync();
+                IsServerRunning = false;
+                Status = localization["ServerStopped"];
+                return;
+            }
+
+            await embeddedServer.StartAsync();
+            var localUrl = LanDiscoveryService.GetBestLocalServerUrl(embeddedServer.Port);
+            ServerUrl = localUrl;
+            IsServerRunning = true;
+            discovery.StartAnnouncing(localUrl, Environment.MachineName);
+            AddOrUpdateDiscoveredHost(new DiscoveredBoardHost
+            {
+                Name = $"{Environment.MachineName} ({localization["LocalServer"]})",
+                Url = localUrl,
+                LastSeenAt = DateTimeOffset.UtcNow
+            });
+            Status = $"{localization["ServerStarted"]}: {localUrl}";
+
+            if (!IsConnected)
+            {
+                await client.ConnectAsync(ServerUrl, UserName);
+            }
+        }
+        catch (Exception ex)
+        {
+            IsServerRunning = false;
             Status = ex.Message;
         }
     }
@@ -373,6 +451,25 @@ public sealed class MainWindowViewModel : ObservableObject
         });
     }
 
+    private void OnHostDiscovered(DiscoveredBoardHost host)
+    {
+        RunOnUiThread(() => AddOrUpdateDiscoveredHost(host));
+    }
+
+    private void AddOrUpdateDiscoveredHost(DiscoveredBoardHost host)
+    {
+        var existing = DiscoveredHosts.FirstOrDefault(candidate => candidate.Url == host.Url);
+        if (existing is not null)
+        {
+            existing.Name = host.Name;
+            existing.LastSeenAt = host.LastSeenAt;
+            return;
+        }
+
+        DiscoveredHosts.Add(host);
+        SelectedHost ??= host;
+    }
+
     private void ApplyBoard(BoardState state)
     {
         currentState = state.Clone();
@@ -425,6 +522,18 @@ public sealed class MainWindowViewModel : ObservableObject
         }
     }
 
+    public bool IsServerRunning
+    {
+        get => isServerRunning;
+        private set
+        {
+            if (SetProperty(ref isServerRunning, value))
+            {
+                OnPropertyChanged(nameof(ServerModeButtonLabel));
+            }
+        }
+    }
+
     private void RaiseLocalizedProperties()
     {
         OnPropertyChanged(nameof(CurrentLanguage));
@@ -432,6 +541,8 @@ public sealed class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(ServerLabel));
         OnPropertyChanged(nameof(UserLabel));
         OnPropertyChanged(nameof(ConnectButtonLabel));
+        OnPropertyChanged(nameof(ServerModeButtonLabel));
+        OnPropertyChanged(nameof(DiscoveredHostsLabel));
         OnPropertyChanged(nameof(ColumnPlaceholder));
         OnPropertyChanged(nameof(AddColumnLabel));
         OnPropertyChanged(nameof(OnlineLabel));

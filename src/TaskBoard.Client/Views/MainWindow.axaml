@@ -21,8 +21,21 @@
           <TextBox Width="180"
                    Text="{Binding UserName, Mode=TwoWay}"
                    Watermark="{Binding UserLabel}" />
+          <Button Classes="secondary"
+                  Command="{Binding ToggleServerCommand}"
+                  Content="{Binding ServerModeButtonLabel}" />
           <Button Command="{Binding ConnectCommand}"
                   Content="{Binding ConnectButtonLabel}" />
+          <ComboBox Width="260"
+                    ItemsSource="{Binding DiscoveredHosts}"
+                    SelectedItem="{Binding SelectedHost, Mode=TwoWay}"
+                    PlaceholderText="{Binding DiscoveredHostsLabel}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding DisplayName}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
           <TextBox Width="210"
                    Text="{Binding NewColumnTitle, Mode=TwoWay}"
                    Watermark="{Binding ColumnPlaceholder}" />

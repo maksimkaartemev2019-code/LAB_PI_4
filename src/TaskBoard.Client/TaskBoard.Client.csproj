@@ -11,8 +11,10 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.*" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.*" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="8.*" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\TaskBoard.Server\TaskBoard.Server.csproj" />
     <ProjectReference Include="..\TaskBoard.Shared\TaskBoard.Shared.csproj" />
   </ItemGroup>
 </Project>
