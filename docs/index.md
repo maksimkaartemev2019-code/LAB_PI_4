@@ -1,34 +1,90 @@
-# Team Task Board
+# Совместная доска задач
 
-Team Task Board is a local-network collaborative task board. A SignalR server keeps the shared board state, and Avalonia desktop clients on Windows and macOS display and edit that state through MVVM.
+Кроссплатформенное клиент-серверное приложение для совместной работы с доской задач в локальной сети. Несколько пользователей подключаются к одному серверу, видят общую доску, редактируют карточки и получают изменения в реальном времени.
 
-## Quick Start
+![Скриншот доски](screenshots/board.svg)
 
-1. Start the server:
+## Возможности
+
+- Создание и удаление колонок.
+- Добавление, редактирование, удаление и перемещение карточек задач.
+- Автоматическая синхронизация изменений между всеми подключёнными клиентами через SignalR.
+- Отображение текущих пользователей онлайн.
+- Локальное сохранение последней синхронизированной копии доски для офлайн-просмотра.
+- Переключение интерфейса между русским и английским языками.
+- MVVM-архитектура: View не содержит бизнес-логики и сетевых вызовов.
+
+## Технологии
+
+- `.NET 8` для клиента, сервера и общей библиотеки моделей.
+- `Avalonia` для кроссплатформенного desktop-интерфейса на Windows и macOS.
+- `CommunityToolkit.Mvvm` для ViewModel и команд.
+- `ASP.NET Core SignalR` для синхронизации в реальном времени.
+- `JSON`-кэш на клиенте для хранения последней версии доски.
+- `xUnit` для автоматических тестов.
+- `DocFX` для автособираемой документации.
+
+## Запуск
+
+Сначала запустите сервер:
 
 ```bash
 dotnet run --project src/TaskBoard.Server
 ```
 
-2. Start the client:
+Для работы в локальной сети удобно явно открыть сервер на всех сетевых интерфейсах:
+
+```bash
+dotnet run --project src/TaskBoard.Server --urls http://0.0.0.0:5000
+```
+
+После этого запустите клиент:
 
 ```bash
 dotnet run --project src/TaskBoard.Client
 ```
 
-3. In the client, enter the server URL. For another computer in the same local network, replace `localhost` with the server machine IP address.
+В клиенте укажите адрес сервера:
 
-## Features
+- `http://localhost:5000`, если клиент и сервер запущены на одной машине;
+- `http://<IP-адрес-сервера>:5000`, если клиент подключается с другого компьютера в локальной сети.
 
-- Create and delete columns.
-- Add, edit, move, and delete task cards.
-- See current online users.
-- Keep a local JSON copy of the last synchronized board for offline viewing.
-- Switch the UI between Russian and English.
+## Инструкция пользователя
 
-## Platforms
+1. Введите имя пользователя и адрес сервера.
+2. Нажмите `Подключиться`.
+3. Добавьте колонку через поле `Название колонки`.
+4. Нажмите `Добавить задачу` в нужной колонке.
+5. Выберите карточку, измените заголовок или описание и нажмите `Сохранить`.
+6. Используйте кнопки `Влево` и `Вправо`, чтобы перемещать выбранную карточку между колонками.
+7. Используйте кнопки `RU` и `EN`, чтобы переключать язык интерфейса.
 
-- Windows 10/11 with .NET 8 runtime.
-- macOS with .NET 8 runtime.
+## Поддерживаемые платформы
 
-The client is built with Avalonia instead of WPF to avoid Windows-only UI dependencies.
+- Windows 10/11.
+- macOS.
+
+Клиент построен на Avalonia, поэтому не использует WPF и не привязан к Windows-only UI. Сборка на Windows и macOS проверяется автоматически в GitHub Actions.
+
+## Проверка проекта
+
+```bash
+dotnet restore LAB_PI_4.sln
+dotnet build LAB_PI_4.sln
+dotnet test LAB_PI_4.sln
+```
+
+## Автосборка и публикация
+
+При push в `main` и при создании pull request GitHub Actions выполняет:
+
+- восстановление зависимостей;
+- сборку решения;
+- запуск тестов;
+- публикацию артефактов клиента и сервера;
+- сборку документации DocFX;
+- публикацию документации на GitHub Pages.
+
+Документация публикуется автоматически по адресу:
+
+[https://maksimkaartemev2019-code.github.io/LAB_PI_4/](https://maksimkaartemev2019-code.github.io/LAB_PI_4/)
