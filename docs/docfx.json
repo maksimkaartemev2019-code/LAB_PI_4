@@ -1,0 +1,38 @@
+{
+  "$schema": "https://dotnet.github.io/docfx/schemas/v3/docfx.schema.json",
+  "metadata": [
+    {
+      "src": [
+        {
+          "files": [
+            "src/**/*.csproj"
+          ],
+          "src": ".."
+        }
+      ],
+      "dest": "api"
+    }
+  ],
+  "build": {
+    "content": [
+      {
+        "files": [
+          "index.md",
+          "api/**.yml",
+          "api/index.md"
+        ]
+      }
+    ],
+    "resource": [
+      {
+        "files": [
+          "screenshots/**"
+        ]
+      }
+    ],
+    "dest": "_site",
+    "globalMetadata": {
+      "_appTitle": "Team Task Board"
+    }
+  }
+}

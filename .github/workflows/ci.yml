@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-test:
+    name: Build and test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore LAB_PI_4.sln
+
+      - name: Build
+        run: dotnet build LAB_PI_4.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test LAB_PI_4.sln --configuration Release --no-build --verbosity normal
+
+      - name: Publish client
+        run: dotnet publish src/TaskBoard.Client/TaskBoard.Client.csproj --configuration Release --no-build --output artifacts/client
+
+      - name: Publish server
+        run: dotnet publish src/TaskBoard.Server/TaskBoard.Server.csproj --configuration Release --no-build --output artifacts/server
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: team-task-board-${{ matrix.os }}
+          path: artifacts
+
+  docs:
+    name: Build documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install DocFX
+        run: dotnet tool install -g docfx
+
+      - name: Build docs
+        run: docfx docs/docfx.json
