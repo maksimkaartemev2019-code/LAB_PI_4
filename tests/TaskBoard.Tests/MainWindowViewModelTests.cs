@@ -29,8 +29,40 @@ public sealed class MainWindowViewModelTests
         Assert.Equal("Team Task Board", viewModel.AppTitle);
     }
 
+    [Fact]
+    public async Task AddColumnCommand_WorksWithoutServerConnection()
+    {
+        var cache = new FakeCache(BoardState.CreateDefault());
+        var viewModel = new MainWindowViewModel(new FakeBoardClient(), cache, new LocalizationService());
+        await viewModel.InitializeFromCacheAsync();
+
+        viewModel.NewColumnTitle = "Проверка";
+        await viewModel.AddColumnCommand.ExecuteAsync(null);
+
+        Assert.Contains(viewModel.Columns, column => column.Title == "Проверка");
+        Assert.NotNull(cache.SavedState);
+    }
+
+    [Fact]
+    public async Task AddAndDeleteCardCommands_WorkWithoutServerConnection()
+    {
+        var viewModel = new MainWindowViewModel(new FakeBoardClient(), new FakeCache(BoardState.CreateDefault()), new LocalizationService());
+        await viewModel.InitializeFromCacheAsync();
+        var column = viewModel.Columns[0];
+
+        await viewModel.AddCardCommand.ExecuteAsync(column);
+        var card = Assert.Single(viewModel.Columns.SelectMany(item => item.Cards), item => item.Title == "Заголовок");
+
+        viewModel.SelectCardCommand.Execute(card);
+        await viewModel.DeleteCardCommand.ExecuteAsync(null);
+
+        Assert.DoesNotContain(viewModel.Columns.SelectMany(item => item.Cards), item => item.Id == card.Id);
+    }
+
     private sealed class FakeCache(BoardState? state) : ILocalBoardCache
     {
+        public BoardState? SavedState { get; private set; }
+
         public Task<BoardState?> LoadAsync(CancellationToken cancellationToken = default)
         {
             return Task.FromResult(state);
@@ -38,6 +70,7 @@ public sealed class MainWindowViewModelTests
 
         public Task SaveAsync(BoardState state, CancellationToken cancellationToken = default)
         {
+            SavedState = state;
             return Task.CompletedTask;
         }
     }

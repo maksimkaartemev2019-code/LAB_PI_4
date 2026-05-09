@@ -75,7 +75,7 @@
                                TextWrapping="Wrap" />
                     <Button Grid.Column="1"
                             Classes="danger"
-                            Command="{Binding DataContext.DeleteColumnCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Command="{Binding #Root.DataContext.DeleteColumnCommand}"
                             CommandParameter="{Binding}"
                             Content="X" />
                   </Grid>
@@ -86,7 +86,7 @@
                         <DataTemplate>
                           <Button Classes="card"
                                   Margin="0,0,0,8"
-                                  Command="{Binding DataContext.SelectCardCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                  Command="{Binding #Root.DataContext.SelectCardCommand}"
                                   CommandParameter="{Binding}">
                             <StackPanel Spacing="5" HorizontalAlignment="Stretch">
                               <TextBlock Text="{Binding Title}"
@@ -105,9 +105,9 @@
 
                   <Button Grid.Row="2"
                           Classes="secondary"
-                          Command="{Binding DataContext.AddCardCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                          Command="{Binding #Root.DataContext.AddCardCommand}"
                           CommandParameter="{Binding}"
-                          Content="{Binding DataContext.AddCardLabel, RelativeSource={RelativeSource AncestorType=Window}}" />
+                          Content="{Binding #Root.DataContext.AddCardLabel}" />
                 </Grid>
               </Border>
             </DataTemplate>

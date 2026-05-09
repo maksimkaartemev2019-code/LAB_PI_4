@@ -18,6 +18,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private string newColumnTitle = string.Empty;
     private string status;
     private bool isConnected;
+    private BoardState currentState = BoardState.CreateDefault();
 
     public MainWindowViewModel()
         : this(new BoardHubClient(), new LocalBoardCache(), new LocalizationService())
@@ -169,60 +170,125 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private async Task AddColumnAsync()
     {
-        if (!EnsureConnected())
+        var title = string.IsNullOrWhiteSpace(NewColumnTitle) ? localization["ColumnPlaceholder"] : NewColumnTitle;
+        if (IsConnected)
         {
+            await client.CreateColumnAsync(title);
+            NewColumnTitle = string.Empty;
             return;
         }
 
-        await client.CreateColumnAsync(NewColumnTitle);
+        await ApplyLocalChangeAsync(state =>
+        {
+            state.Columns.Add(new BoardColumn
+            {
+                Title = title,
+                SortOrder = state.Columns.Count
+            });
+        });
         NewColumnTitle = string.Empty;
     }
 
     private async Task DeleteColumnAsync(ColumnViewModel? column)
     {
-        if (column is null || !EnsureConnected())
+        if (column is null)
         {
             return;
         }
 
-        await client.DeleteColumnAsync(column.Id);
+        if (IsConnected)
+        {
+            await client.DeleteColumnAsync(column.Id);
+            return;
+        }
+
+        await ApplyLocalChangeAsync(state =>
+        {
+            state.Columns.RemoveAll(item => item.Id == column.Id);
+            state.Cards.RemoveAll(card => card.ColumnId == column.Id);
+            NormalizeColumnOrder(state);
+        });
     }
 
     private async Task AddCardAsync(ColumnViewModel? column)
     {
-        if (column is null || !EnsureConnected())
+        if (column is null)
         {
             return;
         }
 
-        await client.CreateCardAsync(column.Id, localization["Title"], string.Empty);
+        if (IsConnected)
+        {
+            await client.CreateCardAsync(column.Id, localization["Title"], string.Empty);
+            return;
+        }
+
+        await ApplyLocalChangeAsync(state =>
+        {
+            state.Cards.Add(new TaskCard
+            {
+                ColumnId = column.Id,
+                Title = localization["Title"],
+                Description = string.Empty,
+                SortOrder = state.Cards.Count(card => card.ColumnId == column.Id)
+            });
+        });
     }
 
     private async Task SaveSelectedCardAsync()
     {
-        if (SelectedCard is null || !EnsureConnected())
+        if (SelectedCard is null)
         {
             return;
         }
 
-        await client.UpdateCardAsync(new CardUpdate
+        var update = new CardUpdate
         {
             Id = SelectedCard.Id,
             Title = SelectedCard.Title,
             Description = SelectedCard.Description
+        };
+
+        if (IsConnected)
+        {
+            await client.UpdateCardAsync(update);
+            return;
+        }
+
+        await ApplyLocalChangeAsync(state =>
+        {
+            var card = state.Cards.FirstOrDefault(item => item.Id == update.Id);
+            if (card is null)
+            {
+                return;
+            }
+
+            card.Title = string.IsNullOrWhiteSpace(update.Title) ? localization["Title"] : update.Title.Trim();
+            card.Description = update.Description.Trim();
+            card.UpdatedAt = DateTimeOffset.UtcNow;
         });
     }
 
     private async Task DeleteSelectedCardAsync()
     {
-        if (SelectedCard is null || !EnsureConnected())
+        if (SelectedCard is null)
         {
             return;
         }
 
         var cardId = SelectedCard.Id;
         SelectedCard = null;
-        await client.DeleteCardAsync(cardId);
+        if (IsConnected)
+        {
+            await client.DeleteCardAsync(cardId);
+            return;
+        }
+
+        await ApplyLocalChangeAsync(state =>
+        {
+            state.Cards.RemoveAll(card => card.Id == cardId);
+            NormalizeCardOrder(state);
+        });
     }
 
     private Task MoveSelectedCardLeftAsync()
@@ -237,7 +303,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private async Task MoveSelectedCardAsync(int offset)
     {
-        if (SelectedCard is null || !EnsureConnected())
+        if (SelectedCard is null)
         {
             return;
         }
@@ -255,7 +321,27 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
 
-        await client.MoveCardAsync(SelectedCard.Id, Columns[targetIndex].Id);
+        var cardId = SelectedCard.Id;
+        var targetColumnId = Columns[targetIndex].Id;
+        if (IsConnected)
+        {
+            await client.MoveCardAsync(cardId, targetColumnId);
+            return;
+        }
+
+        await ApplyLocalChangeAsync(state =>
+        {
+            var card = state.Cards.FirstOrDefault(item => item.Id == cardId);
+            if (card is null)
+            {
+                return;
+            }
+
+            card.ColumnId = targetColumnId;
+            card.SortOrder = state.Cards.Count(item => item.ColumnId == targetColumnId);
+            card.UpdatedAt = DateTimeOffset.UtcNow;
+            NormalizeCardOrder(state);
+        });
     }
 
     private void SwitchLanguage(string? language)
@@ -267,17 +353,6 @@ public sealed class MainWindowViewModel : ObservableObject
 
         localization.Language = language;
         Status = IsConnected ? localization["Connected"] : localization["Ready"];
-    }
-
-    private bool EnsureConnected()
-    {
-        if (IsConnected)
-        {
-            return true;
-        }
-
-        Status = localization["ConnectFirst"];
-        return false;
     }
 
     private void OnBoardUpdated(BoardState state)
@@ -300,6 +375,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private void ApplyBoard(BoardState state)
     {
+        currentState = state.Clone();
         var selectedId = SelectedCard?.Id;
         Columns.Clear();
         foreach (var column in state.Columns.OrderBy(column => column.SortOrder))
@@ -314,6 +390,39 @@ public sealed class MainWindowViewModel : ObservableObject
         SelectedCard = Columns
             .SelectMany(column => column.Cards)
             .FirstOrDefault(card => card.Id == selectedId);
+    }
+
+    private async Task ApplyLocalChangeAsync(Action<BoardState> change)
+    {
+        var state = currentState.Clone();
+        change(state);
+        state.LastUpdatedAt = DateTimeOffset.UtcNow;
+        ApplyBoard(state);
+        await cache.SaveAsync(state);
+        Status = localization["Offline"];
+    }
+
+    private static void NormalizeColumnOrder(BoardState state)
+    {
+        var ordered = state.Columns.OrderBy(column => column.SortOrder).ThenBy(column => column.Title).ToList();
+        for (var index = 0; index < ordered.Count; index++)
+        {
+            ordered[index].SortOrder = index;
+        }
+
+        state.Columns = ordered;
+    }
+
+    private static void NormalizeCardOrder(BoardState state)
+    {
+        foreach (var group in state.Cards.GroupBy(card => card.ColumnId))
+        {
+            var ordered = group.OrderBy(card => card.SortOrder).ThenBy(card => card.CreatedAt).ToList();
+            for (var index = 0; index < ordered.Count; index++)
+            {
+                ordered[index].SortOrder = index;
+            }
+        }
     }
 
     private void RaiseLocalizedProperties()
