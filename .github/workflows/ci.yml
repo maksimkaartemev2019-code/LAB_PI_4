@@ -6,7 +6,6 @@ on:
   push:
     branches:
       - main
-      - feature/team-task-board
 
 permissions:
   contents: read
@@ -75,7 +74,7 @@ jobs:
   deploy-docs:
     name: Deploy documentation
     needs: docs
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       pages: write
