@@ -2,16 +2,16 @@ namespace TaskBoard.Shared;
 
 public sealed class BoardState
 {
-    public string BoardName { get; set; } = "Team Task Board";
+    public string BoardName { get; set; } = "Совместная доска задач";
     public List<BoardColumn> Columns { get; set; } = [];
     public List<TaskCard> Cards { get; set; } = [];
     public DateTimeOffset LastUpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public static BoardState CreateDefault()
     {
-        var todo = new BoardColumn { Title = "To Do", SortOrder = 0 };
-        var progress = new BoardColumn { Title = "In Progress", SortOrder = 1 };
-        var done = new BoardColumn { Title = "Done", SortOrder = 2 };
+        var todo = new BoardColumn { Title = "К выполнению", SortOrder = 0 };
+        var progress = new BoardColumn { Title = "В работе", SortOrder = 1 };
+        var done = new BoardColumn { Title = "Готово", SortOrder = 2 };
 
         return new BoardState
         {
@@ -21,8 +21,8 @@ public sealed class BoardState
                 new TaskCard
                 {
                     ColumnId = todo.Id,
-                    Title = "Prepare backlog",
-                    Description = "Create first tasks and invite teammates.",
+                    Title = "Подготовить план задач",
+                    Description = "Создать первые карточки и пригласить участников.",
                     SortOrder = 0
                 }
             ],

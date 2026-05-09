@@ -31,6 +31,50 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task SwitchLanguage_DoesNotResetBoardOrStatus()
+    {
+        var viewModel = CreateViewModel(new FakeBoardClient(), new FakeCache(BoardState.CreateDefault()), new LocalizationService());
+        await viewModel.InitializeFromCacheAsync();
+        var status = viewModel.Status;
+        var columnCount = viewModel.Columns.Count;
+
+        viewModel.SwitchLanguageCommand.Execute("en");
+
+        Assert.Equal(status, viewModel.Status);
+        Assert.Equal(columnCount, viewModel.Columns.Count);
+        Assert.Contains(viewModel.Columns, column => column.Title == "К выполнению");
+    }
+
+    [Fact]
+    public async Task InitializeFromCache_LocalizesLegacyEnglishSeedData()
+    {
+        var legacy = new BoardState
+        {
+            BoardName = "Team Task Board",
+            Columns =
+            [
+                new BoardColumn { Title = "To Do", SortOrder = 0 },
+                new BoardColumn { Title = "In Progress", SortOrder = 1 },
+                new BoardColumn { Title = "Done", SortOrder = 2 }
+            ]
+        };
+        legacy.Cards.Add(new TaskCard
+        {
+            ColumnId = legacy.Columns[0].Id,
+            Title = "Prepare backlog",
+            Description = "Create first tasks and invite teammates."
+        });
+        var cache = new FakeCache(legacy);
+        var viewModel = CreateViewModel(new FakeBoardClient(), cache, new LocalizationService());
+
+        await viewModel.InitializeFromCacheAsync();
+
+        Assert.Contains(viewModel.Columns, column => column.Title == "К выполнению");
+        Assert.Contains(viewModel.Columns.SelectMany(column => column.Cards), card => card.Title == "Подготовить план задач");
+        Assert.Equal("Совместная доска задач", cache.SavedState?.BoardName);
+    }
+
+    [Fact]
     public async Task AddColumnCommand_WorksWithoutServerConnection()
     {
         var cache = new FakeCache(BoardState.CreateDefault());

@@ -180,7 +180,9 @@ public sealed class MainWindowViewModel : ObservableObject
         var cached = await cache.LoadAsync();
         if (cached is not null)
         {
+            LocalizeLegacySeedData(cached);
             ApplyBoard(cached);
+            await cache.SaveAsync(cached);
             Status = localization["Offline"];
         }
         else
@@ -430,7 +432,6 @@ public sealed class MainWindowViewModel : ObservableObject
         }
 
         localization.Language = language;
-        Status = IsConnected ? localization["Connected"] : localization["Ready"];
     }
 
     private void OnBoardUpdated(BoardState state)
@@ -531,6 +532,39 @@ public sealed class MainWindowViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(ServerModeButtonLabel));
             }
+        }
+    }
+
+    private static void LocalizeLegacySeedData(BoardState state)
+    {
+        if (state.BoardName == "Team Task Board")
+        {
+            state.BoardName = "Совместная доска задач";
+        }
+
+        ReplaceColumnTitle(state, "To Do", "К выполнению");
+        ReplaceColumnTitle(state, "In Progress", "В работе");
+        ReplaceColumnTitle(state, "Done", "Готово");
+
+        foreach (var card in state.Cards)
+        {
+            if (card.Title == "Prepare backlog")
+            {
+                card.Title = "Подготовить план задач";
+            }
+
+            if (card.Description == "Create first tasks and invite teammates.")
+            {
+                card.Description = "Создать первые карточки и пригласить участников.";
+            }
+        }
+    }
+
+    private static void ReplaceColumnTitle(BoardState state, string oldTitle, string newTitle)
+    {
+        foreach (var column in state.Columns.Where(column => column.Title == oldTitle))
+        {
+            column.Title = newTitle;
         }
     }
 

@@ -6,6 +6,18 @@ namespace TaskBoard.Tests;
 public sealed class BoardStateServiceTests
 {
     [Fact]
+    public void CreateDefault_UsesRussianSeedData()
+    {
+        var state = BoardState.CreateDefault();
+
+        Assert.Equal("Совместная доска задач", state.BoardName);
+        Assert.Contains(state.Columns, column => column.Title == "К выполнению");
+        Assert.Contains(state.Columns, column => column.Title == "В работе");
+        Assert.Contains(state.Columns, column => column.Title == "Готово");
+        Assert.Contains(state.Cards, card => card.Title == "Подготовить план задач");
+    }
+
+    [Fact]
     public void CreateColumn_AddsColumnToSnapshot()
     {
         var service = new BoardStateService();
