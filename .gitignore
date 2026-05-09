@@ -79,6 +79,10 @@ nunit-*.xml
 [Rr]eleasePS/
 dlldata.c
 
+# Generated documentation output
+docs/api/
+docs/_site/
+
 # Benchmark Results
 BenchmarkDotNet.Artifacts/
 
