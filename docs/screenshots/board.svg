@@ -2,7 +2,7 @@
   <rect width="1280" height="760" fill="#f6f8fb"/>
   <text x="42" y="68" font-family="Segoe UI, Arial" font-size="34" font-weight="700" fill="#0f172a">Совместная доска задач</text>
   <rect x="42" y="96" width="235" height="42" rx="7" fill="#ffffff" stroke="#cbd5e1"/>
-  <text x="58" y="123" font-family="Segoe UI, Arial" font-size="17" fill="#475569">http://localhost:5000</text>
+  <text x="58" y="123" font-family="Segoe UI, Arial" font-size="17" fill="#475569">http://localhost:5088</text>
   <rect x="292" y="96" width="170" height="42" rx="7" fill="#ffffff" stroke="#cbd5e1"/>
   <text x="308" y="123" font-family="Segoe UI, Arial" font-size="17" fill="#475569">Maksim</text>
   <rect x="476" y="96" width="150" height="42" rx="7" fill="#1d4ed8"/>

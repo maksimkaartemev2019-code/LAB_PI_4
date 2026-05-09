@@ -67,12 +67,12 @@ public sealed class MainWindowViewModelTests
         var host = new DiscoveredBoardHost
         {
             Name = "Office PC",
-            Url = "http://192.168.1.10:5000"
+            Url = "http://192.168.1.10:5088"
         };
 
         viewModel.SelectedHost = host;
 
-        Assert.Equal("http://192.168.1.10:5000", viewModel.ServerUrl);
+        Assert.Equal("http://192.168.1.10:5088", viewModel.ServerUrl);
     }
 
     private static MainWindowViewModel CreateViewModel(

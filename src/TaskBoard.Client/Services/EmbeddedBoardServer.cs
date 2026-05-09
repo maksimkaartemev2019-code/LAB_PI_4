@@ -9,12 +9,13 @@ namespace TaskBoard.Client.Services;
 
 public sealed class EmbeddedBoardServer : IAsyncDisposable
 {
+    public const int DefaultPort = 5088;
     private WebApplication? app;
 
     public bool IsRunning => app is not null;
-    public int Port { get; private set; } = 5000;
+    public int Port { get; private set; } = DefaultPort;
 
-    public async Task StartAsync(int port = 5000, CancellationToken cancellationToken = default)
+    public async Task StartAsync(int port = DefaultPort, CancellationToken cancellationToken = default)
     {
         if (app is not null)
         {

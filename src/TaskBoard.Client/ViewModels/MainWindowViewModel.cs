@@ -17,7 +17,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private readonly LanDiscoveryService discovery;
     private CardViewModel? selectedCard;
     private DiscoveredBoardHost? selectedHost;
-    private string serverUrl = "http://localhost:5000";
+    private string serverUrl = $"http://localhost:{EmbeddedBoardServer.DefaultPort}";
     private string userName = Environment.UserName;
     private string newColumnTitle = string.Empty;
     private string status;
